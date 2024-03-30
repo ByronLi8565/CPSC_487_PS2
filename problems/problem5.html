@@ -20,13 +20,70 @@
 </head>
 <body>
 <script type="module">
-    import {ThreeEngine} from "../js/utils/utils_three.js";
-
+    import {get_default_lil_gui, ThreeEngine, refresh_displays} from "../js/utils/utils_three.js";
+    import {mul_matrix_matrix} from "../js/utils/utils_math.js";
+    
+    function se2_matrix(theta, x, y) {
+        return [
+            [Math.cos(theta), -Math.sin(theta), x],
+            [Math.sin(theta), Math.cos(theta), y],
+            [0, 0, 1]
+        ];
+    }
+    function matrix_vector_multiply(m, v) {
+        return [
+            m[0][0]*v[0][0]+m[0][1]*v[1][0]+m[0][2],
+            m[1][0]*v[0][0]+m[1][1]*v[1][0]+m[1][2]
+        ];
+    }
     // todo: recreate this visualization, demonstrating your understanding of SE(2)
     // todo: https://yale-cpsc-487-587-internal-djrakita-c95fa6c3239a481a48d29a6b0fd.gitlab.io/html/visualizations/point_mapping_2D_direct_isometry.html
     // todo: (no need to draw the unit circle here)
     // todo: or, feel free to come up with any visualization here that demonstrates your understanding of SE(2)
 
+    let engine = ThreeEngine.new_default_2d();
+    engine.add_standard2Dshape_as_mesh_object(0x00eeff);
+    let settings = {
+        mesh_visibility: false,
+        draw_points: true,
+        wireframe_visibility: true,
+        point_size:0.02,
+        theta: 0,
+        tx:0,
+        ty:0,
+    };
+    let actions = {
+        reset: function(){
+            settings.theta = 0;
+            refresh_displays(gui);
+        }
+    };
+    let gui = get_default_lil_gui();
+    gui.add(settings, 'draw_points').name('Draw Points');
+    gui.add(settings, 'wireframe_visibility').name('Draw Wireframe');
+    gui.add(settings, 'mesh_visibility').name('Draw Mesh');
+    gui.add(settings, 'point_size', 0.001, 0.03).name('Point Size');
+    let folder = gui.addFolder('Isometry Controls');
+    folder.add(settings, 'theta', -Math.PI, Math.PI).name('Theta');
+    folder.add(settings, 'tx', -3, 3).name('Translation x');
+    folder.add(settings, 'ty', -3, 3).name('Translation y');
+    let standard_points = engine.get_local_vertex_positions_of_mesh_object(0);
+    let wireframe_points = engine.get_local_vertex_positions_of_mesh_object_wireframe(0);
+
+    engine.animation_loop(function(){
+        let theta = settings.theta;
+        let se2 = se2_matrix(theta, settings.tx, settings.ty);
+        refresh_displays(gui);
+        let transformed_points = standard_points.map(p => matrix_vector_multiply(se2, p));
+        let transformed_wireframe_points = wireframe_points.map(p => matrix_vector_multiply(se2, p));
+        engine.update_vertex_positions_of_mesh_object(0, transformed_points);
+        engine.update_vertex_positions_of_mesh_object_wireframe(0, transformed_wireframe_points);
+        if(settings.draw_points){
+            transformed_points.forEach(p => {engine.draw_debug_sphere(p, settings.point_size, 0xeeee00)});
+        }
+        engine.mesh_objects[0].visible = settings.mesh_visibility;
+        engine.set_mesh_object_wireframe_visibility(0, settings.wireframe_visibility);
+    });
 </script>
 </body>
 </html>
